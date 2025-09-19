@@ -2,7 +2,6 @@
 using namespace std;
 
 int main() {
-    cout << "Hello, World" << endl;
-    cout << "This is Pull request" << endl;
+    cout << "Hello, World,pavien" << endl;
     return 0;
 }
