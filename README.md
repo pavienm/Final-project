@@ -18,6 +18,6 @@ A graphical **fare calculator application** written in **C++ with wxWidgets**.
 
 ### 1. Clone the repo
 ```bash
-git clone https://github.com/your-username/fare-calculator.git
+git clone https://github.com/pavienm/Final-project
 cd fare-calculator
 
