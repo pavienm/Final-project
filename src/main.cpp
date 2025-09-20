@@ -17,16 +17,16 @@ public:
         form->AddGrowableCol(1, 1);
         root->Add(form, 0, wxEXPAND | wxLEFT | wxRIGHT, 16);
 
-       
+        panel->SetSizer(root); // apply layout
     }
 };
 
 class FareApp : public wxApp {
 public:
     bool OnInit() override {
-        if (!wxApp::OnInit()) return false;
         auto* f = new FareFrame();
-        f->Centre(); f->Show();
+        f->Centre();
+        f->Show();
         return true;
     }
 };
