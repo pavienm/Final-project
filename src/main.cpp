@@ -5,6 +5,24 @@
 #include <sstream>
 #include <iomanip>
 
+// --- Green theme helpers ---
+class GreenCheckBox : public wxCheckBox {
+public:
+    GreenCheckBox(wxWindow* parent, wxWindowID id, const wxString& label)
+        : wxCheckBox(parent, id, label) {
+        SetForegroundColour(wxColour(0, 100, 0));     // dark green text
+    }
+};
+
+class GreenTextCtrl : public wxTextCtrl {
+public:
+    GreenTextCtrl(wxWindow* parent, wxWindowID id, const wxString& value, long style = 0)
+        : wxTextCtrl(parent, id, value, wxDefaultPosition, wxDefaultSize, style) {
+        SetForegroundColour(wxColour(0, 100, 0));     // green text
+        SetBackgroundColour(wxColour(240, 255, 240)); // light green bg
+    }
+};
+
 // --- Data structure for car variants ---
 struct CarVariant {
     wxString model;
@@ -25,11 +43,13 @@ public:
         // Root panel & sizer
         wxPanel* panel = new wxPanel(this);
         auto* root = new wxBoxSizer(wxVERTICAL);
-        panel->SetSizer(root); // (fixed from Stage 1/2)
+        panel->SetSizer(root);
+        panel->SetBackgroundColour(wxColour(235, 250, 235)); // soft green
 
         // Title
         auto* title = new wxStaticText(panel, wxID_ANY, "Fare Calculator (RM) - with Car Models");
         title->SetFont(title->GetFont().MakeBold().Scale(1.2));
+        title->SetForegroundColour(wxColour(0, 100, 0));
         root->Add(title, 0, wxALL | wxALIGN_CENTER_HORIZONTAL, 12);
 
         // 2-column form
@@ -44,58 +64,67 @@ public:
 
         AddLabeledField(panel, form, "Variant", variantChoice_);
 
-        // Info labels
+        // Info labels (tinted green)
         form->Add(new wxStaticText(panel, wxID_ANY, "Rate per km (RM)"), 0, wxALIGN_CENTER_VERTICAL);
         rateLabel_ = new wxStaticText(panel, wxID_ANY, "RM0.00");
         rateLabel_->SetFont(rateLabel_->GetFont().MakeBold());
+        rateLabel_->SetForegroundColour(wxColour(0, 128, 0));
         form->Add(rateLabel_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
 
         form->Add(new wxStaticText(panel, wxID_ANY, "Engine (cc)"), 0, wxALIGN_CENTER_VERTICAL);
         engineLabel_ = new wxStaticText(panel, wxID_ANY, "-");
+        engineLabel_->SetForegroundColour(wxColour(0, 128, 0));
         form->Add(engineLabel_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
 
         form->Add(new wxStaticText(panel, wxID_ANY, "Fuel Consumption (km/L)"), 0, wxALIGN_CENTER_VERTICAL);
         kmlLabel_ = new wxStaticText(panel, wxID_ANY, "-");
+        kmlLabel_->SetForegroundColour(wxColour(0, 128, 0));
         form->Add(kmlLabel_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
 
-        // Inputs
+        // Inputs (green widgets)
         form->Add(new wxStaticText(panel, wxID_ANY, "Distance (km)"), 0, wxALIGN_CENTER_VERTICAL);
-        distInput_ = new wxTextCtrl(panel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_RIGHT);
+        distInput_ = new GreenTextCtrl(panel, wxID_ANY, "", wxTE_RIGHT);
         { wxFloatingPointValidator<double> v(2, nullptr, wxNUM_VAL_DEFAULT); v.SetMin(0.0); distInput_->SetValidator(v); }
         form->Add(distInput_, 1, wxEXPAND);
 
         form->Add(new wxStaticText(panel, wxID_ANY, "Time (minutes)"), 0, wxALIGN_CENTER_VERTICAL);
-        timeInput_ = new wxTextCtrl(panel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_RIGHT);
+        timeInput_ = new GreenTextCtrl(panel, wxID_ANY, "", wxTE_RIGHT);
         { wxIntegerValidator<unsigned int> v(nullptr, wxNUM_VAL_DEFAULT); timeInput_->SetValidator(v); }
         form->Add(timeInput_, 1, wxEXPAND);
 
-        // Options
+        // Options (green checkboxes)
         form->Add(new wxStaticText(panel, wxID_ANY, "Traffic jam (+20%)"), 0, wxALIGN_CENTER_VERTICAL);
-        trafficChk_ = new wxCheckBox(panel, wxID_ANY, "");
+        trafficChk_ = new GreenCheckBox(panel, wxID_ANY, "");
         form->Add(trafficChk_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
 
         form->Add(new wxStaticText(panel, wxID_ANY, "Night charge (+30%)"), 0, wxALIGN_CENTER_VERTICAL);
-        nightChk_ = new wxCheckBox(panel, wxID_ANY, "");
+        nightChk_ = new GreenCheckBox(panel, wxID_ANY, "");
         form->Add(nightChk_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
 
-        // Buttons
+        // Buttons (green background + white text)
         root->AddSpacer(8);
         auto* btns = new wxBoxSizer(wxHORIZONTAL);
         root->Add(btns, 0, wxEXPAND | wxLEFT | wxRIGHT, 16);
         btns->AddStretchSpacer(1);
         auto* calcBtn = new wxButton(panel, wxID_ANY, "Calculate Fare");
+        calcBtn->SetBackgroundColour(wxColour(0, 128, 0));
+        calcBtn->SetForegroundColour(*wxWHITE);
         auto* clearBtn = new wxButton(panel, wxID_ANY, "Clear");
+        clearBtn->SetBackgroundColour(wxColour(34, 139, 34));
+        clearBtn->SetForegroundColour(*wxWHITE);
         btns->Add(calcBtn, 0); btns->AddSpacer(8); btns->Add(clearBtn, 0);
 
-        // Result + note
+        // Result + note (green result)
         root->AddSpacer(10);
         resultText_ = new wxStaticText(panel, wxID_ANY, "Fare: RM0.00");
         resultText_->SetFont(resultText_->GetFont().MakeBold().Scale(1.3));
+        resultText_->SetForegroundColour(wxColour(0, 100, 0));
         root->Add(resultText_, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 12);
 
         auto* note = new wxStaticText(panel, wxID_ANY,
-            "Formula: base = (Distance × Rate) + (Time × RM0.10), then apply +20% (jam) and/or +30% (night)");
+            "Formula: base = (Distance x Rate) + (Time x RM0.10), then apply + 20% (jam) and/or + 30% (night)");
         note->Wrap(560);
+        note->SetForegroundColour(wxColour(60, 120, 60));
         root->Add(note, 0, wxALIGN_CENTER_HORIZONTAL | wxLEFT | wxRIGHT | wxBOTTOM, 12);
 
         // Events
@@ -116,10 +145,10 @@ private:
     wxStaticText* rateLabel_{nullptr};
     wxStaticText* engineLabel_{nullptr};
     wxStaticText* kmlLabel_{nullptr};
-    wxTextCtrl*   distInput_{nullptr};
-    wxTextCtrl*   timeInput_{nullptr};
-    wxCheckBox*   trafficChk_{nullptr};
-    wxCheckBox*   nightChk_{nullptr};
+    GreenTextCtrl*   distInput_{nullptr};
+    GreenTextCtrl*   timeInput_{nullptr};
+    GreenCheckBox*   trafficChk_{nullptr};
+    GreenCheckBox*   nightChk_{nullptr};
     wxStaticText* resultText_{nullptr};
 
     // --- Data ---
@@ -129,8 +158,13 @@ private:
 
     // --- Helpers ---
     void AddLabeledField(wxPanel* p, wxFlexGridSizer* form, const wxString& label, wxChoice*& choice) {
-        form->Add(new wxStaticText(p, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
+        auto* lbl = new wxStaticText(p, wxID_ANY, label);
+        lbl->SetForegroundColour(wxColour(0, 100, 0));
+        form->Add(lbl, 0, wxALIGN_CENTER_VERTICAL);
+
         choice = new wxChoice(p, wxID_ANY);
+        choice->SetForegroundColour(wxColour(0, 100, 0));
+        choice->SetBackgroundColour(wxColour(245, 255, 245));
         form->Add(choice, 1, wxEXPAND);
     }
 
@@ -224,9 +258,7 @@ private:
             return;
         }
         const auto& cv = variants_[idx];
-        // Base fare
         double fare = (dist * cv.rate_per_km) + (static_cast<double>(tmin) * 0.10);
-        // Surcharges
         if (trafficChk_->GetValue()) fare *= 1.20;
         if (nightChk_->GetValue())   fare *= 1.30;
         resultText_->SetLabel(wxString::Format("Fare: %s", FormatRM(fare)));
