@@ -1,0 +1,12 @@
+{
+  "name": "C++ Console",
+  "image": "mcr.microsoft.com/devcontainers/cpp:0-ubuntu-22.04",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y gdb",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools"
+      ]
+    }
+  }
+}
