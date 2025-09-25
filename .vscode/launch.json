@@ -2,18 +2,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run main.cpp",
+      "name": "Run & Debug (g++)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/Final-project/main.exe",
+      "program": "${workspaceFolder}/fare",
+      "cwd": "${workspaceFolder}",
       "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/Final-project",
-      "environment": [],
-      "externalConsole": true,
+      "preLaunchTask": "Build (g++)",
       "MIMode": "gdb",
-      "miDebuggerPath": "gdb.exe",
-      "preLaunchTask": "build main.cpp"
+      "miDebuggerPath": "gdb"
+    },
+    {
+      "name": "Run & Debug (MSVC)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\fare.exe",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "preLaunchTask": "Build (MSVC)"
     }
   ]
 }

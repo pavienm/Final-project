@@ -1,7 +1,0 @@
-{
-  "name": "final-project",
-  "version-string": "0.1.0",
-  "dependencies": [
-    { "name": "wxwidgets", "default-features": true }
-  ]
-}

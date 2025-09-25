@@ -1,298 +1,100 @@
-#include <wx/wx.h>
-#include <wx/valnum.h>
-#include <vector>
-#include <map>
-#include <sstream>
+#include <iostream>
 #include <iomanip>
-#include <fstream>   // for saving receipt
-#include <cstdlib>   // for system()
+#include <vector>
+#include <string>
+#include <fstream>
+using namespace std;
 
-// --- Green theme helpers ---
-class GreenCheckBox : public wxCheckBox {
-public:
-    GreenCheckBox(wxWindow* parent, wxWindowID id, const wxString& label)
-        : wxCheckBox(parent, id, label) {
-        SetForegroundColour(wxColour(0, 100, 0));     // dark green text
-    }
-};
-
-class GreenTextCtrl : public wxTextCtrl {
-public:
-    GreenTextCtrl(wxWindow* parent, wxWindowID id, const wxString& value, long style = 0)
-        : wxTextCtrl(parent, id, value, wxDefaultPosition, wxDefaultSize, style) {
-        SetForegroundColour(wxColour(0, 100, 0));     // green text
-        SetBackgroundColour(wxColour(240, 255, 240)); // light green bg
-    }
-};
-
-// --- Data structure for car variants ---
 struct CarVariant {
-    wxString model;
-    wxString variant;
-    int      engine_cc;
-    double   km_per_l;
-    double   rate_per_km;
+    string model;
+    string variant;
+    int engine_cc;
+    double km_per_l;
+    double rate_per_km;
 };
 
-// --- Main window ---
-class FareFrame : public wxFrame {
-public:
-    FareFrame()
-    : wxFrame(nullptr, wxID_ANY, "Fare Calculator", wxDefaultPosition, wxSize(640, 500)) {
-        SetMinSize(wxSize(640, 500));
-        InitCarData();
+int main() {
+    // --- Car data ---
+    vector<CarVariant> cars = {
+        {"Perodua Bezza", "1.0 G (M)", 998, 22.8, 1.20},
+        {"Perodua Bezza", "1.3 X (A)", 1329, 21.0, 1.20},
+        {"Proton Saga", "1.3 Standard M/T", 1297, 14.0, 1.20},
+        {"Proton Persona", "1.6 Standard CVT", 1597, 15.2, 1.50},
+        {"Toyota Vios", "1.3 XLE CVT", 1329, 15.0, 1.50},
+        {"Perodua Myvi", "1.3 G (M)", 1297, 15.4, 1.20},
+        {"Perodua Myvi", "1.5 X (A)", 1495, 17.5, 1.20}
+    };
 
-        wxPanel* panel = new wxPanel(this);
-        auto* root = new wxBoxSizer(wxVERTICAL);
-        panel->SetSizer(root);
-
-        auto* title = new wxStaticText(panel, wxID_ANY, "Fare Calculator (RM) - with Car Models");
-        title->SetFont(title->GetFont().MakeBold().Scale(1.2));
-        title->SetForegroundColour(wxColour(0, 100, 0));
-        root->Add(title, 0, wxALL | wxALIGN_CENTER_HORIZONTAL, 12);
-
-        auto* form = new wxFlexGridSizer(0, 2, 10, 12);
-        form->AddGrowableCol(1, 1);
-        root->Add(form, 0, wxEXPAND | wxLEFT | wxRIGHT, 16);
-
-        AddLabeledField(panel, form, "Model", modelChoice_);
-        for (const auto& m : modelsOrder_) modelChoice_->Append(m);
-        modelChoice_->SetSelection(0);
-
-        AddLabeledField(panel, form, "Variant", variantChoice_);
-
-
-        form->Add(new wxStaticText(panel, wxID_ANY, "Rate per km (RM)"), 0, wxALIGN_CENTER_VERTICAL);
-        rateLabel_ = new wxStaticText(panel, wxID_ANY, "RM0.00");
-        rateLabel_->SetFont(rateLabel_->GetFont().MakeBold());
-        rateLabel_->SetForegroundColour(wxColour(0, 128, 0));
-        form->Add(rateLabel_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
-
-        form->Add(new wxStaticText(panel, wxID_ANY, "Engine (cc)"), 0, wxALIGN_CENTER_VERTICAL);
-        engineLabel_ = new wxStaticText(panel, wxID_ANY, "-");
-        engineLabel_->SetForegroundColour(wxColour(0, 128, 0));
-        form->Add(engineLabel_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
-
-        form->Add(new wxStaticText(panel, wxID_ANY, "Fuel Consumption (km/L)"), 0, wxALIGN_CENTER_VERTICAL);
-        kmlLabel_ = new wxStaticText(panel, wxID_ANY, "-");
-        kmlLabel_->SetForegroundColour(wxColour(0, 128, 0));
-        form->Add(kmlLabel_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
-
-
-        form->Add(new wxStaticText(panel, wxID_ANY, "Distance (km)"), 0, wxALIGN_CENTER_VERTICAL);
-        distInput_ = new GreenTextCtrl(panel, wxID_ANY, "", wxTE_RIGHT);
-        { wxFloatingPointValidator<double> v(2, nullptr, wxNUM_VAL_DEFAULT); v.SetMin(0.0); distInput_->SetValidator(v); }
-        form->Add(distInput_, 1, wxEXPAND);
-
-        form->Add(new wxStaticText(panel, wxID_ANY, "Time (minutes)"), 0, wxALIGN_CENTER_VERTICAL);
-        timeInput_ = new GreenTextCtrl(panel, wxID_ANY, "", wxTE_RIGHT);
-        { wxIntegerValidator<unsigned int> v(nullptr, wxNUM_VAL_DEFAULT); timeInput_->SetValidator(v); }
-        form->Add(timeInput_, 1, wxEXPAND);
-
-
-        form->Add(new wxStaticText(panel, wxID_ANY, "Traffic jam (+20%)"), 0, wxALIGN_CENTER_VERTICAL);
-        trafficChk_ = new GreenCheckBox(panel, wxID_ANY, "");
-        form->Add(trafficChk_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
-
-        form->Add(new wxStaticText(panel, wxID_ANY, "Night charge (+30%)"), 0, wxALIGN_CENTER_VERTICAL);
-        nightChk_ = new GreenCheckBox(panel, wxID_ANY, "");
-        form->Add(nightChk_, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL);
-
-
-        root->AddSpacer(8);
-        auto* btns = new wxBoxSizer(wxHORIZONTAL);
-        root->Add(btns, 0, wxEXPAND | wxLEFT | wxRIGHT, 16);
-        btns->AddStretchSpacer(1);
-        auto* calcBtn = new wxButton(panel, wxID_ANY, "Calculate Fare");
-        calcBtn->SetBackgroundColour(wxColour(0, 128, 0));
-        calcBtn->SetForegroundColour(*wxWHITE);
-        auto* clearBtn = new wxButton(panel, wxID_ANY, "Clear");
-        clearBtn->SetBackgroundColour(wxColour(34, 139, 34));
-        clearBtn->SetForegroundColour(*wxWHITE);
-        btns->Add(calcBtn, 0); btns->AddSpacer(8); btns->Add(clearBtn, 0);
-
-
-        root->AddSpacer(10);
-        resultText_ = new wxStaticText(panel, wxID_ANY, "Fare: RM0.00");
-        resultText_->SetFont(resultText_->GetFont().MakeBold().Scale(1.3));
-        resultText_->SetForegroundColour(wxColour(0, 100, 0));
-        root->Add(resultText_, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 12);
-
-        auto* note = new wxStaticText(panel, wxID_ANY,
-            "Formula: base = (Distance x Rate) + (Time x RM0.10), then apply + 20% (jam) and/or + 30% (night)");
-        note->Wrap(560);
-        note->SetForegroundColour(wxColour(60, 120, 60));
-        root->Add(note, 0, wxALIGN_CENTER_HORIZONTAL | wxLEFT | wxRIGHT | wxBOTTOM, 12);
-
-        modelChoice_->Bind(wxEVT_CHOICE, &FareFrame::OnModelChanged, this);
-        variantChoice_->Bind(wxEVT_CHOICE, &FareFrame::OnVariantChanged, this);
-        calcBtn->Bind(wxEVT_BUTTON, &FareFrame::OnCalculate, this);
-        clearBtn->Bind(wxEVT_BUTTON, &FareFrame::OnClear, this);
-
-        PopulateVariantsForSelectedModel();
-        UpdateVariantInfo();
+    cout << "==== Fare Calculator (Console Version) ====\n\n";
+    cout << "Available Car Models:\n";
+    for (size_t i = 0; i < cars.size(); i++) {
+        cout << i+1 << ". " << cars[i].model << " - " << cars[i].variant 
+             << " (" << cars[i].engine_cc << "cc, " 
+             << fixed << setprecision(1) << cars[i].km_per_l << " km/L, Rate: RM" 
+             << fixed << setprecision(2) << cars[i].rate_per_km << "/km)\n";
     }
 
-private:
-    wxChoice*     modelChoice_{nullptr};
-    wxChoice*     variantChoice_{nullptr};
-    wxStaticText* rateLabel_{nullptr};
-    wxStaticText* engineLabel_{nullptr};
-    wxStaticText* kmlLabel_{nullptr};
-    GreenTextCtrl*   distInput_{nullptr};
-    GreenTextCtrl*   timeInput_{nullptr};
-    GreenCheckBox*   trafficChk_{nullptr};
-    GreenCheckBox*   nightChk_{nullptr};
-    wxStaticText* resultText_{nullptr};
-
-    std::vector<CarVariant> variants_;
-    std::map<wxString, std::vector<int>> modelToIndices_;
-    std::vector<wxString> modelsOrder_;
-
-    void AddLabeledField(wxPanel* p, wxFlexGridSizer* form, const wxString& label, wxChoice*& choice) {
-        auto* lbl = new wxStaticText(p, wxID_ANY, label);
-        lbl->SetForegroundColour(wxColour(0, 100, 0));
-        form->Add(lbl, 0, wxALIGN_CENTER_VERTICAL);
-
-        choice = new wxChoice(p, wxID_ANY);
-        choice->SetForegroundColour(wxColour(0, 100, 0));
-        choice->SetBackgroundColour(wxColour(245, 255, 245));
-        form->Add(choice, 1, wxEXPAND);
+    int choice;
+    cout << "\nSelect a car (1-" << cars.size() << "): ";
+    if (!(cin >> choice) || choice < 1 || choice > (int)cars.size()) {
+        cout << "Invalid choice!\n";
+        return 0;
     }
+    CarVariant cv = cars[choice-1];
 
-    void InitCarData() {
-        auto add = [&](const wxString& model, const wxString& variant, int cc, double kml, double rate){
-            int idx = static_cast<int>(variants_.size());
-            variants_.push_back({model, variant, cc, kml, rate});
-            modelToIndices_[model].push_back(idx);
-        };
+    double distance;
+    unsigned int time;
+    char traffic, night;
 
-        add("Perodua Bezza", "1.0 G (M)",  998, 22.8, 1.20);
-        add("Perodua Bezza", "1.3 X (A)", 1329, 21.0, 1.20);
-        add("Proton Saga", "1.3 Standard M/T", 1297, 14.0, 1.20);
-        add("Proton Persona", "1.6 Standard CVT", 1597, 15.2, 1.50);
-        add("Toyota Vios", "1.3 XLE CVT", 1329, 15.0, 1.50);
-        add("Perodua Myvi", "1.3 G (M)", 1297, 15.4, 1.20);
-        add("Perodua Myvi", "1.5 X (A)", 1495, 17.5, 1.20);
+    cout << "Enter distance (km): ";
+    if (!(cin >> distance) || distance < 0) { cout << "Invalid distance!\n"; return 0; }
 
-        modelsOrder_ = {"Perodua Bezza","Proton Saga","Proton Persona","Toyota Vios","Perodua Myvi"};
-    }
+    cout << "Enter time (minutes): ";
+    if (!(cin >> time)) { cout << "Invalid time!\n"; return 0; }
 
-    int CurrentVariantIndex() const {
-        wxString model = modelChoice_->GetStringSelection();
-        int vsel = variantChoice_->GetSelection();
-        if (!modelToIndices_.count(model) || vsel < 0) return -1;
-        const auto& idxs = modelToIndices_.at(model);
-        if (vsel >= static_cast<int>(idxs.size())) return -1;
-        return idxs[vsel];
-    }
+    cout << "Traffic jam? (y/n): ";
+    cin >> traffic;
+    cout << "Night charge? (y/n): ";
+    cin >> night;
 
-    void PopulateVariantsForSelectedModel() {
-        variantChoice_->Clear();
-        wxString model = modelChoice_->GetStringSelection();
-        const auto& idxs = modelToIndices_[model];
-        for (int i : idxs) variantChoice_->Append(variants_[i].variant);
-        if (!idxs.empty()) variantChoice_->SetSelection(0);
-    }
+    // --- Fare calculation ---
+    double fare = (distance * cv.rate_per_km) + (time * 0.10);
+    if (traffic == 'y' || traffic == 'Y') fare *= 1.20;
+    if (night == 'y' || night == 'Y')     fare *= 1.30;
 
-    void UpdateVariantInfo() {
-        int idx = CurrentVariantIndex();
-        if (idx < 0) return;
-        const auto& cv = variants_[idx];
-        rateLabel_->SetLabel(wxString::Format("RM%.2f", cv.rate_per_km));
-        engineLabel_->SetLabel(wxString::Format("%d", cv.engine_cc));
-        kmlLabel_->SetLabel(wxString::Format("%.1f", cv.km_per_l));
-    }
+    cout << "\n==== Fare Result ====\n";
+    cout << "Car Model    : " << cv.model << '\n';
+    cout << "Variant      : " << cv.variant << '\n';
+    cout << "Engine       : " << cv.engine_cc << " cc\n";
+    cout << "Fuel Eff.    : " << fixed << setprecision(1) << cv.km_per_l << " km/L\n";
+    cout << "Rate/km      : RM" << fixed << setprecision(2) << cv.rate_per_km << '\n';
+    cout << "Distance     : " << fixed << setprecision(2) << distance << " km\n";
+    cout << "Time         : " << time << " minutes\n";
+    cout << "Traffic Jam  : " << ((traffic=='y'||traffic=='Y') ? "Yes" : "No") << '\n';
+    cout << "Night Charge : " << ((night=='y'||night=='Y') ? "Yes" : "No") << '\n';
+    cout << "-------------------------\n";
+    cout << "Total Fare   : RM" << fixed << setprecision(2) << fare << '\n';
+    cout << "=========================\n";
 
-    bool ReadInputs(double& distanceKm, unsigned int& timeMin) {
-        if (!Validate() || !TransferDataFromWindow()) return false;
-        wxString ds = distInput_->GetValue().Trim().Trim(false);
-        wxString ts = timeInput_->GetValue().Trim().Trim(false);
-        if (ds.empty() || ts.empty()) return false;
-        double d; long t;
-        if (!ds.ToDouble(&d) || d < 0) return false;
-        if (!ts.ToLong(&t) || t < 0) return false;
-        distanceKm = d; timeMin = static_cast<unsigned>(t);
-        return true;
-    }
+    // Save receipt to file (no auto-open)
+    ofstream receipt("receipt.txt");
+    receipt << "=========================\n";
+    receipt << "       Fare Receipt      \n";
+    receipt << "=========================\n";
+    receipt << "Car Model    : " << cv.model << "\n";
+    receipt << "Variant      : " << cv.variant << "\n";
+    receipt << "Engine       : " << cv.engine_cc << " cc\n";
+    receipt << "Fuel Eff.    : " << fixed << setprecision(1) << cv.km_per_l << " km/L\n";
+    receipt << "Rate/km      : RM" << fixed << setprecision(2) << cv.rate_per_km << "\n";
+    receipt << "Distance     : " << fixed << setprecision(2) << distance << " km\n";
+    receipt << "Time         : " << time << " minutes\n";
+    receipt << "Traffic Jam  : " << ((traffic=='y'||traffic=='Y') ? "Yes" : "No") << "\n";
+    receipt << "Night Charge : " << ((night=='y'||night=='Y') ? "Yes" : "No") << "\n";
+    receipt << "-------------------------\n";
+    receipt << "Total Fare   : RM" << fixed << setprecision(2) << fare << "\n";
+    receipt << "=========================\n";
+    receipt.close();
 
-    static wxString FormatRM(double amount) {
-        std::ostringstream oss; oss.setf(std::ios::fixed); oss << std::setprecision(2) << amount;
-        return wxString::Format("RM%s", oss.str());
-    }
-
-    // --- Events ---
-    void OnModelChanged(wxCommandEvent&) { PopulateVariantsForSelectedModel(); UpdateVariantInfo(); }
-    void OnVariantChanged(wxCommandEvent&) { UpdateVariantInfo(); }
-
-    void OnCalculate(wxCommandEvent&) {
-        double dist = 0.0; unsigned tmin = 0;
-        if (!ReadInputs(dist, tmin)) {
-            wxMessageBox("Please enter valid Distance (>=0) and Time (>=0).",
-                         "Invalid input", wxICON_WARNING | wxOK, this);
-            return;
-        }
-        int idx = CurrentVariantIndex();
-        if (idx < 0) {
-            wxMessageBox("Please select a model and variant.", "Missing selection",
-                         wxICON_WARNING | wxOK, this);
-            return;
-        }
-        const auto& cv = variants_[idx];
-
-        double fare = (dist * cv.rate_per_km) + (static_cast<double>(tmin) * 0.10);
-        if (trafficChk_->GetValue()) fare *= 1.20;
-        if (nightChk_->GetValue())   fare *= 1.30;
-
-        resultText_->SetLabel(wxString::Format("Fare: %s", FormatRM(fare)));
-
-        // --- Save receipt ---
-        std::ofstream receipt("receipt.txt");
-        receipt << "=========================\n";
-        receipt << "       Fare Receipt      \n";
-        receipt << "=========================\n";
-        receipt << "Car Model    : " << cv.model << "\n";
-        receipt << "Variant      : " << cv.variant << "\n";
-        receipt << "Engine       : " << cv.engine_cc << " cc\n";
-        receipt << "Fuel Eff.    : " << cv.km_per_l << " km/L\n";
-        receipt << "Rate/km      : RM" << cv.rate_per_km << "\n";
-        receipt << "Distance     : " << dist << " km\n";
-        receipt << "Time         : " << tmin << " minutes\n";
-        receipt << "Traffic Jam  : " << (trafficChk_->GetValue() ? "Yes" : "No") << "\n";
-        receipt << "Night Charge : " << (nightChk_->GetValue() ? "Yes" : "No") << "\n";
-        receipt << "-------------------------\n";
-        receipt << "Total Fare   : RM" << std::fixed << std::setprecision(2) << fare << "\n";
-        receipt << "=========================\n";
-        receipt.close();
-
-        wxMessageBox("Receipt saved as receipt.txt", "Receipt", wxOK | wxICON_INFORMATION);
-
-        // Auto open in Notepad (Windows only)
-        system("notepad receipt.txt");
-    }
-
-    void OnClear(wxCommandEvent&) {
-        modelChoice_->SetSelection(0);
-        PopulateVariantsForSelectedModel();
-        UpdateVariantInfo();
-        distInput_->Clear();
-        timeInput_->Clear();
-        trafficChk_->SetValue(false);
-        nightChk_->SetValue(false);
-        resultText_->SetLabel("Fare: RM0.00");
-    }
-};
-
-// --- App bootstrap ---
-class FareApp : public wxApp {
-public:
-    bool OnInit() override {
-        if (!wxApp::OnInit()) return false;
-        auto* frame = new FareFrame();
-        frame->Centre();
-        frame->Show();
-        return true;
-    }
-};
-
-wxIMPLEMENT_APP(FareApp);
+    cout << "\nReceipt saved as receipt.txt\n";
+    return 0;
+}

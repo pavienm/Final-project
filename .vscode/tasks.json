@@ -2,20 +2,21 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build main.cpp",
+      "label": "Build (g++)",
       "type": "shell",
       "command": "g++",
-      "args": [
-        "-g",
-        "${workspaceFolder}/Final-project/main.cpp",
-        "-o",
-        "${workspaceFolder}/Final-project/main.exe"
-      ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
+      "args": ["-std=c++17", "-O2", "-g", "src/main.cpp", "-o", "fare"],
+      "group": "build",
       "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Build (MSVC)",
+      "type": "shell",
+      "command": "cl",
+      "args": ["/std:c++17", "/EHsc", "/Zi", "/Fe:fare.exe", "src\\main.cpp"],
+      "windows": { "command": "cl" },
+      "group": "build",
+      "problemMatcher": ["$msCompile"]
     }
   ]
 }
