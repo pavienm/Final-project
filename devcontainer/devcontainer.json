@@ -1,0 +1,11 @@
+{
+  "name": "C++ Console",
+  "image": "mcr.microsoft.com/devcontainers/cpp:0-ubuntu-22.04",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools"           // Microsoft C/C++ extension
+      ]
+    }
+  }
+}
